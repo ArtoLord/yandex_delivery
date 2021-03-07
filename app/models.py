@@ -11,6 +11,9 @@ class CourierTypes(models.TextChoices):
 class Region(models.Model):
     region_id = models.IntegerField(primary_key=True, unique=True)
 
+    def __repr__(self):
+        return str(self.region_id)
+
 
 class Courier(models.Model):
 
@@ -21,8 +24,8 @@ class Courier(models.Model):
     )
     working_hours = ArrayField(models.CharField(max_length=16))
     regions = models.ManyToManyField(Region, related_name="couriers")
-    rating = models.FloatField()
-    earnings = models.IntegerField()
+    rating = models.FloatField(default=0)
+    earnings = models.IntegerField(default=0)
 
     __type_to_max_weight_dict = {
         CourierTypes.FOOT: 10,
