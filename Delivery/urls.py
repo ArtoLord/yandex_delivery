@@ -20,6 +20,7 @@ from rest_framework.routers import DefaultRouter
 
 router = DefaultRouter(trailing_slash=False)
 router.register('couriers', CourierViewSet)
+router.register('orders', OrderViewSet)
 
 urlpatterns = [
     path('admin/', admin.site.urls),

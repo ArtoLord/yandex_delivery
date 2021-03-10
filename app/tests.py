@@ -1,6 +1,7 @@
 from rest_framework.test import APITestCase
 from django.test import Client
 import json
+from .logic import TimeRange
 
 
 class CourierApiTestCase(APITestCase):
@@ -149,3 +150,19 @@ class CourierApiTestCase(APITestCase):
             },
             json.loads(response.content)
         )
+
+
+class TimeRangeTestCase(APITestCase):
+    def test_intersect(self):
+        data1 = ["10:20-10:40", "10:45-10:50"]
+        data2 = ["10:25-10:35"]
+        self.assertTrue(TimeRange(data1).intersect(TimeRange(data2)))
+
+        data2 = ["10:40-10:44"]
+        self.assertTrue(TimeRange(data1).intersect(TimeRange(data2)))
+
+        data2 = ["10:41-10:45"]
+        self.assertTrue(TimeRange(data1).intersect(TimeRange(data2)))
+
+        data2 = ["10:41-10:44"]
+        self.assertFalse(TimeRange(data1).intersect(TimeRange(data2)))

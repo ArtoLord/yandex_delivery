@@ -1,5 +1,5 @@
 from django.db import models
-from django.contrib.postgres.fields import ArrayField
+from django.contrib.postgres.fields import ArrayField, RangeField
 
 
 class CourierTypes(models.TextChoices):
@@ -38,7 +38,18 @@ class Courier(models.Model):
         return self.__type_to_max_weight_dict[CourierTypes(self.courier_type)]
 
 
+class Assignation(models.Model):
+    courier = models.OneToOneField(Courier, on_delete=models.CASCADE, related_name="assignation")
+    assign_time = models.DateTimeField(auto_now=True)
+
+    @property
+    def not_completed_orders(self):
+        return self.orders.filter(complete_time=None)
+
+
 class Order(models.Model):
+    assigned_to = models.ForeignKey(Assignation, on_delete=models.SET_NULL, null=True, related_name="orders")
+    complete_time = models.DateTimeField(null=True, default=None)
     order_id = models.IntegerField(primary_key=True, unique=True)
     weight = models.FloatField()
     region = models.ForeignKey(Region, on_delete=models.CASCADE, related_name="orders")

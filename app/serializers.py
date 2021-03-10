@@ -1,4 +1,4 @@
-from .models import Courier, Region, Order
+from .models import Courier, Region, Order, Assignation
 from rest_framework import serializers
 from django.core import validators
 
@@ -18,6 +18,9 @@ class CourierSerializer(serializers.ModelSerializer):
     )
 
     def to_internal_value(self, data):
+        if not data.get('regions'):
+            return super(CourierSerializer, self).to_internal_value(data)
+
         for region_id in data['regions']:
             if not isinstance(region_id, int):
                 continue
@@ -52,3 +55,19 @@ class OrderSerializer(serializers.ModelSerializer):
             Region.objects.get_or_create(region_id=region_id)
 
         return super(OrderSerializer, self).to_internal_value(data)
+
+
+class OrderIdSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Order
+        fields = ['id']
+
+    id = serializers.IntegerField(source='order_id')
+
+
+class AssignationSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Assignation
+        fields = ['orders', 'assign_time']
+
+    orders = OrderIdSerializer(many=True, source="not_completed_orders")
