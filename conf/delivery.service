@@ -1,0 +1,27 @@
+[Unit]
+Description=delivery app
+
+# Requirements
+Requires=network.target
+
+# Dependency ordering
+After=network.target
+
+[Service]
+TimeoutStartSec=0
+RestartSec=10
+Restart=always
+
+WorkingDirectory=/srv/yandex_delivery/
+
+User=www-data
+
+KillSignal=SIGQUIT
+Type=notify
+NotifyAccess=all
+
+# Main process
+ExecStart=/usr/bin/uwsgi /srv/yandex_delivery/conf/uwsgi.ini
+
+[Install]
+WantedBy=multi-user.target
