@@ -1,5 +1,10 @@
 from .models import Order, Assignation, Courier
 from sortedcontainers import SortedList
+from django.utils.dateparse import parse_datetime
+from django.utils.timezone import datetime
+
+from django.db.models.signals import pre_save
+from django.dispatch import receiver
 
 
 class TimeRange:
@@ -29,17 +34,14 @@ class TimeRange:
         return False
 
 
-def get_possible_orders(courier):
-    try:
-        var = courier.assignation
+def get_possible_orders(courier, assigned_to=None):
+    if courier.assigned_now and not assigned_to:
         return []
-    except Assignation.DoesNotExist:
-        pass
 
     orders = Order.objects.filter(
         region__in=courier.regions.all(),
         weight__lte=courier.max_weight,
-        assigned_to=None
+        assigned_to=assigned_to
     )
 
     courier_times = TimeRange(courier.working_hours)
@@ -47,10 +49,48 @@ def get_possible_orders(courier):
 
 
 def assign_to(courier, orders):
-    assign, created = Assignation.objects.get_or_create(courier=courier)
-    if not created:
-        return assign
+
+    if courier.assigned_now:
+        return courier.current_assignation
+
+    if not orders:
+        if not courier.assigned_now:
+            return Assignation(courier=courier, assign_time=datetime.now())
+
+    assign = Assignation.objects.create(courier=courier)
+
     for order in orders:
         order.assigned_to = assign
         order.save()
+    courier.assigned_now = True
+    courier.save()
     return assign
+
+
+def complete(order, courier, complete_time):
+    time = parse_datetime(complete_time)
+    orders = courier.completed_orders.order_by('-complete_time')
+    if not orders:
+        order.delivery_time = time - courier.current_assignation.assign_time
+        order.complete_time = time
+        order.save()
+        return order
+    order.delivery_time = time - orders.first().complete_time
+    order.complete_time = complete_time
+    order.save()
+    courier.assigned_now = bool(courier.current_assignation.not_completed_orders)
+    courier.save()
+    return order
+
+
+@receiver(pre_save, sender=Courier)
+def courier_post_save(sender, instance, *args, **kwargs):
+    if assignation := instance.current_assignation:
+        orders = get_possible_orders(instance, assigned_to=assignation)
+        for order in assignation.orders.all():
+            if order not in orders:
+                order.assigned_to = None
+                order.save()
+        if assignation.orders.count() == 0:
+            assignation.delete()
+            instance.assigned_now = False

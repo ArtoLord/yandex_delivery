@@ -4,7 +4,8 @@ from rest_framework.views import Response
 from .serializers import CourierSerializer, UpdateCourierSerializer, OrderSerializer, AssignationSerializer
 from .models import Courier, Order, Assignation
 from rest_framework.decorators import action
-from .logic import get_possible_orders, assign_to
+from .logic import get_possible_orders, assign_to, complete
+from django.utils.timezone import datetime
 
 
 class CourierViewSet(ModelViewSet):
@@ -49,15 +50,14 @@ class OrderViewSet(ModelViewSet):
         courier = courier.first()
         order = order.first()
 
-        try:
-            assignation = courier.assignation
-        except Assignation.DoesNotExist:
+        if courier != order.assigned_to.courier:
             return Response(status=400)
 
-        if order not in assignation.orders.all():
-            return Response(status=400)
-        order.complete_time = complete_time
-        order.save()
+        if order.complete_time:
+            return Response({"order_id": order.order_id})
+
+        complete(order, courier, complete_time)
+
         return Response({"order_id": order.order_id})
 
     @action(["POST"], detail=False)

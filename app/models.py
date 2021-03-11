@@ -1,4 +1,5 @@
 from django.db import models
+from django.db.models import Avg, Min
 from django.contrib.postgres.fields import ArrayField, RangeField
 
 
@@ -24,8 +25,7 @@ class Courier(models.Model):
     )
     working_hours = ArrayField(models.CharField(max_length=16))
     regions = models.ManyToManyField(Region, related_name="couriers")
-    rating = models.FloatField(default=0)
-    earnings = models.IntegerField(default=0)
+    assigned_now = models.BooleanField(default=False)
 
     __type_to_max_weight_dict = {
         CourierTypes.FOOT: 10,
@@ -34,12 +34,43 @@ class Courier(models.Model):
     }
 
     @property
+    def current_assignation(self):
+        if self.assigned_now:
+            return self.assignations.order_by('-assign_time').first()
+        return None
+
+    @property
     def max_weight(self):
         return self.__type_to_max_weight_dict[CourierTypes(self.courier_type)]
 
+    @property
+    def rating(self):
+        rating = self.completed_orders.values('region').annotate(
+            avg=Avg('delivery_time')
+        ).aggregate(Min('avg')).get('avg_min', 0)
+        return (60 * 60 - min(rating, 60 * 60))/(60 * 60) * 5
+
+    __type_to_c_dict = {
+        CourierTypes.FOOT: 2,
+        CourierTypes.BIKE: 5,
+        CourierTypes.CAR: 9
+    }
+
+    @property
+    def earnings(self):
+        n = self.assignations.exclude(pk=self.current_assignation.pk if self.assigned_now else -1).count()
+        return n * 500 * self.__type_to_c_dict[CourierTypes(self.courier_type)]
+
+    @property
+    def completed_orders(self):
+        return Order.objects.filter(
+            complete_time__isnull=False,
+            assigned_to__courier=self
+        )
+
 
 class Assignation(models.Model):
-    courier = models.OneToOneField(Courier, on_delete=models.CASCADE, related_name="assignation")
+    courier = models.ForeignKey(Courier, on_delete=models.CASCADE, related_name="assignations")
     assign_time = models.DateTimeField(auto_now=True)
 
     @property
@@ -54,4 +85,4 @@ class Order(models.Model):
     weight = models.FloatField()
     region = models.ForeignKey(Region, on_delete=models.CASCADE, related_name="orders")
     delivery_hours = ArrayField(models.CharField(max_length=16))
-
+    delivery_time = models.DurationField(null=True, default=None)
