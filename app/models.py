@@ -45,6 +45,8 @@ class Courier(models.Model):
 
     @property
     def rating(self):
+        if not self.completed_orders:
+            return None
         rating = self.completed_orders.values('region').annotate(
             avg=Avg('delivery_time')
         ).aggregate(Min('avg')).get('avg_min', 0)
