@@ -69,7 +69,8 @@ class OrderViewSet(ModelViewSet):
         courier = courier.first()
         orders = get_possible_orders(courier)
         assign = assign_to(courier, orders)
-
+        if not assign.orders.all():
+            return Response({"orders": []})
         return Response(AssignationSerializer(assign).data)
 
     def create(self, request, *args, **kwargs):
