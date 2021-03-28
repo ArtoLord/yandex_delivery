@@ -32,6 +32,8 @@ $ sudo cp /srv/yandex_delivery/conf/delivery.service /etc/systemd/system/deliver
 ```
 После этого можно запускать сервис:
 ```bash
+$ sudo systemctl enable nginx
+$ sudo systemctl start nginx
 $ sudo systemctl enable delivery
 $ sudo systemctl start delivery
 ```
